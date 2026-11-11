@@ -182,13 +182,18 @@ td { padding: 18px 25px; border-top: 1px solid var(--border-color); font-size: 1
 .footer-logos { display: flex; align-items: center; justify-content: center; gap: 20px; }
 .footer-logos img { height: 50px; width: auto; object-fit: contain; }
 .footer-text { font-size: 12px; color: var(--text-muted); font-weight: 500; }
-.history-filters { display:flex; align-items:flex-end; flex-wrap:wrap; gap:10px; padding:18px 24px; border-bottom:1px solid var(--border-color); }
-.history-filter { display:flex; flex-direction:column; gap:6px; min-width:140px; flex:1; }
-.history-filter.search { min-width:200px; flex:1.5; }
-.history-filter label { font-size:11px; font-weight:700; color:var(--text-muted); }
-.history-filter input,.history-filter select { height:38px; padding:0 10px; border:1px solid var(--border-color); border-radius:8px; background:#fff; font:inherit; font-size:12px; }
-.history-filter button { height:38px; padding:0 14px; border:0; border-radius:8px; background:var(--primary); color:#fff; font-size:12px; font-weight:700; cursor:pointer; }
-@media(max-width:700px) { .history-filters { padding:15px; } .history-filter,.history-filter.search { min-width:calc(50% - 6px); } }
+.history-filters { display:grid; grid-template-columns:minmax(220px,1.6fr) minmax(145px,.9fr) repeat(2,minmax(150px,.9fr)) auto auto; align-items:end; gap:10px; padding:18px 24px; border-bottom:1px solid var(--border-color); }
+.history-filter { display:flex; min-width:0; flex-direction:column; gap:6px; }
+.history-filter label { color:#43574a; font-size:11px; font-weight:700; }
+.history-filter input,.history-filter select { width:100%; height:42px; padding:0 12px; border:1px solid var(--border-color); border-radius:8px; background:#fff; color:var(--text-main); font:inherit; font-size:12px; }
+.history-filter input:focus,.history-filter select:focus { outline:2px solid rgba(30,70,32,.16); border-color:var(--primary); }
+.history-filters button,.history-filter-clear { display:inline-flex; height:42px; align-items:center; justify-content:center; padding:0 16px; border:1px solid var(--primary); border-radius:8px; background:var(--primary); color:#fff; font:inherit; font-size:12px; font-weight:700; white-space:nowrap; cursor:pointer; }
+.history-filters button:hover { background:var(--primary-dark); }
+.history-filter-clear { border-color:var(--border-color); background:#fff; color:var(--primary); text-decoration:none; }
+.history-filter-clear:hover { background:var(--accent-light); }
+@media(max-width:1100px) { .history-filters { grid-template-columns:repeat(4,minmax(0,1fr)); } .history-filter.search { grid-column:span 2; } }
+@media(max-width:700px) { .history-filters { grid-template-columns:repeat(2,minmax(0,1fr)); padding:15px; } .history-filter.search { grid-column:1/-1; } .history-filters button,.history-filter-clear { width:100%; } }
+@media(max-width:420px) { .history-filters { grid-template-columns:minmax(0,1fr); } .history-filter.search { grid-column:auto; } }
 .history-pagination { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:16px 24px; color:var(--text-muted); font-size:12px; }
 .history-pages { display:flex; gap:5px; align-items:center; }.history-pages a { border:1px solid var(--border-color); border-radius:6px; padding:7px 9px; color:var(--primary); font-weight:600; }.history-pages a.current { background:var(--primary); color:#fff; }.history-pages a.disabled { color:#aab5ab; pointer-events:none; }
 @media(max-width:700px) { .history-pagination { padding:14px 15px; flex-direction:column; align-items:flex-start; } }
@@ -270,7 +275,7 @@ td { padding: 18px 25px; border-top: 1px solid var(--border-color); font-size: 1
                     <div class="history-filter"><label for="history-status">Status</label><select id="history-status" name="status"><option value="all" <?= $statusFilter === "all" ? "selected" : "" ?>>All statuses</option><option value="pending" <?= $statusFilter === "pending" ? "selected" : "" ?>>Pending</option><option value="approved" <?= $statusFilter === "approved" ? "selected" : "" ?>>Approved</option><option value="rejected" <?= $statusFilter === "rejected" ? "selected" : "" ?>>Rejected</option><option value="returned" <?= $statusFilter === "returned" ? "selected" : "" ?>>Returned</option></select></div>
                     <div class="history-filter"><label for="history-from">Submitted from</label><input id="history-from" type="date" name="from" value="<?= e($historyFrom) ?>"></div>
                     <div class="history-filter"><label for="history-to">Submitted to</label><input id="history-to" type="date" name="to" value="<?= e($historyTo) ?>"></div>
-                    <button type="submit">Apply filters</button><a href="student_dashboard.php" style="height:38px;display:inline-flex;align-items:center;padding:0 12px;border:1px solid var(--border-color);border-radius:8px;color:var(--primary);font-size:12px;font-weight:700;">Clear</a>
+                    <button type="submit">Apply filters</button><a class="history-filter-clear" href="student_dashboard.php">Clear</a>
                 </form>
                 <div class="table-wrap"><table data-pagination="false">
                     <thead><tr><th>Equipment</th><th>Qty</th><th>Period</th><th>Purpose</th><th>Status</th><th>Submitted</th></tr></thead>

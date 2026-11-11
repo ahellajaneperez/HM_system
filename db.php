@@ -25,6 +25,17 @@ try {
     exit('Database connection failed. Start XAMPP MySQL, run database/hm_system.sql in MySQL Workbench, and verify the host, port, and credentials in config/database.php.');
 }
 
+$roleColumnCheck = $pdo->query("SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'role'");
+$roleColumnType = (string) $roleColumnCheck->fetchColumn();
+if ($roleColumnType !== '' && strpos($roleColumnType, "'superadmin'") === false) {
+    $pdo->exec("ALTER TABLE users MODIFY role ENUM('superadmin','admin','student') NOT NULL DEFAULT 'student'");
+    $firstAdminId = $pdo->query("SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1")->fetchColumn();
+    if ($firstAdminId !== false) {
+        $promoteFirstAdmin = $pdo->prepare("UPDATE users SET role = 'superadmin' WHERE id = ?");
+        $promoteFirstAdmin->execute([(int) $firstAdminId]);
+    }
+}
+
 $profileColumnCheck = $pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = ?");
 $profileColumns = [
     "student_number" => "VARCHAR(50) NULL UNIQUE",

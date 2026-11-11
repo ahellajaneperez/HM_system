@@ -167,7 +167,25 @@ a { color: inherit; text-decoration: none; }
 .footer-logos { display: flex; align-items: center; justify-content: center; gap: 20px; }
 .footer-logos img { height: 50px; width: auto; object-fit: contain; }
 .footer-text { font-size: 12px; color: var(--text-muted); font-weight: 500; }
-.catalog-filters{display:flex;align-items:flex-end;flex-wrap:wrap;gap:10px;padding:18px;margin:0 0 28px;background:#fff;border:1px solid var(--border-color);border-radius:14px;box-shadow:var(--shadow)}.catalog-filter{display:flex;flex-direction:column;gap:6px;min-width:155px;flex:1}.catalog-filter.search{min-width:220px;flex:1.6}.catalog-filter label{font-size:11px;font-weight:700;color:var(--text-muted)}.catalog-filter input,.catalog-filter select{height:40px;padding:0 11px;border:1px solid var(--border-color);border-radius:8px;background:#fff;color:var(--text-main);font:inherit;font-size:12px}.catalog-filter button,.catalog-clear{height:40px;padding:0 14px;border:0;border-radius:8px;background:var(--primary);color:#fff;font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}.catalog-clear{border:1px solid var(--border-color);background:#fff;color:var(--primary)}.catalog-summary{margin:-12px 2px 22px;color:var(--text-muted);font-size:12px;font-weight:600}.catalog-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 18px;margin-top:18px;background:#fff;border:1px solid var(--border-color);border-radius:12px;color:var(--text-muted);font-size:12px}.catalog-pages{display:flex;gap:5px;align-items:center}.catalog-pages a{border:1px solid var(--border-color);border-radius:6px;padding:7px 9px;color:var(--primary);font-weight:600}.catalog-pages a.current{background:var(--primary);color:#fff}.catalog-pages a.disabled{color:#aab5ab;pointer-events:none}.borrow-btn:disabled{opacity:.55;cursor:not-allowed}@media(max-width:700px){.catalog-filters{padding:14px}.catalog-filter,.catalog-filter.search{min-width:calc(50% - 6px)}.catalog-pagination{align-items:flex-start;flex-direction:column}}
+.catalog-filters{display:grid;grid-template-columns:minmax(220px,1.55fr) repeat(2,minmax(170px,1fr)) auto auto;align-items:end;gap:12px;padding:20px 22px;margin:0 0 28px;background:#fff;border:1px solid var(--border-color);border-radius:16px;box-shadow:var(--shadow)}
+.catalog-filter{display:flex;min-width:0;flex-direction:column;gap:7px}
+.catalog-filter label{font-size:12px;font-weight:700;color:#43574a}
+.catalog-filter input,.catalog-filter select{width:100%;height:48px;padding:0 13px;border:1px solid var(--border-color);border-radius:9px;background:#fff;color:var(--text-main);font:inherit;font-size:13px}
+.catalog-filter input:focus,.catalog-filter select:focus{outline:2px solid rgba(30,70,32,.16);border-color:var(--primary)}
+.catalog-filters>button,.catalog-clear{height:48px;padding:0 17px;border:1px solid var(--primary);border-radius:9px;background:var(--primary);color:#fff;font:inherit;font-size:12px;font-weight:700;white-space:nowrap;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.catalog-filters>button:hover{background:var(--primary-dark)}
+.catalog-clear{border-color:var(--border-color);background:#fff;color:var(--primary)}
+.catalog-clear:hover{background:var(--accent-light)}
+.catalog-summary{margin:-12px 2px 22px;color:var(--text-muted);font-size:12px;font-weight:600}
+.catalog-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 18px;margin-top:18px;background:#fff;border:1px solid var(--border-color);border-radius:12px;color:var(--text-muted);font-size:12px}
+.catalog-pages{display:flex;gap:5px;align-items:center}
+.catalog-pages a{border:1px solid var(--border-color);border-radius:6px;padding:7px 9px;color:var(--primary);font-weight:600}
+.catalog-pages a.current{background:var(--primary);color:#fff}
+.catalog-pages a.disabled{color:#aab5ab;pointer-events:none}
+.borrow-btn:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:1050px){.catalog-filters{grid-template-columns:repeat(4,minmax(0,1fr))}.catalog-filter.search{grid-column:span 2}.catalog-filters>button,.catalog-clear{width:100%}}
+@media(max-width:700px){.catalog-filters{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:15px}.catalog-filter.search{grid-column:1/-1}.catalog-filters>button,.catalog-clear{width:100%}.catalog-pagination{align-items:flex-start;flex-direction:column}}
+@media(max-width:420px){.catalog-filters{grid-template-columns:minmax(0,1fr)}.catalog-filter.search{grid-column:auto}}
 </style>
 </head>
 <body>
@@ -227,7 +245,12 @@ a { color: inherit; text-decoration: none; }
                 <h2 style="font-size: 26px; color: var(--primary); margin-bottom: 8px;">Kitchen Tools and Equipment</h2>
                 <p style="font-size: 14px; color: var(--text-muted);">Select items and add them to your cart before entering the borrowing details.</p>
             </section>
-<form class="catalog-filters" method="GET" action="borrow_equipment.php"><div class="catalog-filter search"><label for="catalog-search">Search equipment</label><input id="catalog-search" type="search" name="q" value="<?= e($catalogSearch) ?>" placeholder="Search by tool name or category"></div><div class="catalog-filter"><label for="catalog-category">Category</label><select id="catalog-category" name="category"><option value="">All categories</option><?php foreach ($categoryOptions as $option): ?><option value="<?= e($option) ?>" <?= $catalogCategory === $option ? "selected" : "" ?>><?= e($option) ?></option><?php endforeach; ?></select></div><div class="catalog-filter"><label for="catalog-availability">Availability</label><select id="catalog-availability" name="availability"><option value="all" <?= $availabilityFilter === "all" ? "selected" : "" ?>>All equipment</option><option value="available" <?= $availabilityFilter === "available" ? "selected" : "" ?>>Available now</option><option value="out" <?= $availabilityFilter === "out" ? "selected" : "" ?>>Out of stock</option></select></div><button type="submit">Apply filters</button><a class="catalog-clear" href="borrow_equipment.php">Clear</a></form>
+<form class="catalog-filters" method="GET" action="borrow_equipment.php">
+    <div class="catalog-filter search"><label for="catalog-search">Search equipment</label><input id="catalog-search" type="search" name="q" value="<?= e($catalogSearch) ?>" placeholder="Search by tool name or category"></div>
+    <div class="catalog-filter"><label for="catalog-category">Category</label><select id="catalog-category" name="category"><option value="">All categories</option><?php foreach ($categoryOptions as $option): ?><option value="<?= e($option) ?>" <?= $catalogCategory === $option ? "selected" : "" ?>><?= e($option) ?></option><?php endforeach; ?></select></div>
+    <div class="catalog-filter"><label for="catalog-availability">Availability</label><select id="catalog-availability" name="availability"><option value="all" <?= $availabilityFilter === "all" ? "selected" : "" ?>>All equipment</option><option value="available" <?= $availabilityFilter === "available" ? "selected" : "" ?>>Available now</option><option value="out" <?= $availabilityFilter === "out" ? "selected" : "" ?>>Out of stock</option></select></div>
+    <button type="submit">Apply filters</button><a class="catalog-clear" href="borrow_equipment.php">Clear</a>
+</form>
 <div class="catalog-summary">Showing <?= number_format($catalogFirst) ?>–<?= number_format($catalogLast) ?> of <?= number_format($catalogTotal) ?> tools</div>
 
             <?php if (empty($categories)): ?><section class="category"><p>No equipment matches your search and filters.</p></section><?php endif; ?>

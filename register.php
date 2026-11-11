@@ -1,12 +1,125 @@
 <?php
+session_start();
 require_once "db.php";
 
 $message = "";
+$accountType = (string) ($_GET["type"] ?? $_POST["account_type"] ?? "student");
+if (!in_array($accountType, ["student", "admin"], true)) {
+    $accountType = "student";
+}
+$isSuperAdmin = isset($_SESSION["user_id"]) && ($_SESSION["user_role"] ?? "") === "superadmin";
+$isAdmin = isset($_SESSION["user_id"]) && in_array($_SESSION["user_role"] ?? "", ["admin", "superadmin"], true);
+$adminCount = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role IN ('admin', 'superadmin')")->fetchColumn();
+$canCreateAdmin = $isSuperAdmin || $adminCount < 2;
+$adminCreated = $accountType === "admin" && isset($_GET["created"]);
+$adminName = "";
+$adminEmail = "";
+$adminPhone = "";
+if ($accountType === "admin" && $canCreateAdmin && empty($_SESSION["csrf_token"])) {
+    $_SESSION["csrf_token"] = bin2hex(random_bytes(32));
+}
 $courseName = "Bachelor of Science in Hospitality Management";
 $sectionOptions = [];
 foreach (range(1, 4) as $year) { foreach (["A", "B", "C"] as $letter) { $sectionOptions[] = "Year {$year} — {$letter}"; } }
 
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
+if ($_SERVER["REQUEST_METHOD"] === "POST" && $accountType === "admin") {
+    if (!$canCreateAdmin) {
+        $message = "The first two administrator accounts can register here. After that, only a signed-in administrator can create accounts.";
+    } elseif (
+        empty($_SESSION["csrf_token"])
+        || !hash_equals($_SESSION["csrf_token"], (string) ($_POST["csrf_token"] ?? ""))
+    ) {
+        http_response_code(403);
+        $message = "Your form session expired. Refresh the page and try again.";
+    } else {
+        $adminName = trim($_POST["name"] ?? "");
+        $adminEmail = trim($_POST["email"] ?? "");
+        $adminPhoneInput = trim($_POST["phone_number"] ?? "");
+        $adminPhone = preg_replace('/[\s()-]/', '', $adminPhoneInput);
+        $adminPassword = $_POST["password"] ?? "";
+        $adminConfirm = $_POST["confirm_password"] ?? "";
+        $emailDomain = strtolower(substr($adminEmail, (int) strrpos($adminEmail, "@") + 1));
+        $placeholderDomains = ["example.com", "example.org", "example.net", "sample.com"];
+        $isPlaceholderEmail = preg_match('/\.(?:example|invalid|test|localhost)$/', $emailDomain) === 1;
+        foreach ($placeholderDomains as $placeholderDomain) {
+            if ($emailDomain === $placeholderDomain || str_ends_with($emailDomain, "." . $placeholderDomain)) {
+                $isPlaceholderEmail = true;
+                break;
+            }
+        }
+
+        if ($adminName === "" || strlen($adminName) > 100) {
+            $message = "Enter a name of up to 100 characters.";
+        } elseif (!filter_var($adminEmail, FILTER_VALIDATE_EMAIL) || strlen($adminEmail) > 150) {
+            $message = "Enter a valid email address of up to 150 characters.";
+        } elseif ($isPlaceholderEmail) {
+            $message = "Please use a real email address. Example and sample email domains are not allowed.";
+        } elseif ($adminPhone !== "" && !preg_match('/^(?:09[0-9]{9}|\+639[0-9]{9})$/', $adminPhone)) {
+            $message = "Enter an 11-digit number starting with 09 or a Philippine number in +639 format.";
+        } elseif (
+            strlen($adminPassword) < 8
+            || !preg_match('/[A-Z]/', $adminPassword)
+            || !preg_match('/[a-z]/', $adminPassword)
+            || !preg_match('/[0-9]/', $adminPassword)
+            || !preg_match('/[^A-Za-z0-9]/', $adminPassword)
+        ) {
+            $message = "Password must be at least 8 characters and include an uppercase letter, a lowercase letter, a number, and a special character.";
+        } elseif ($adminPassword !== $adminConfirm) {
+            $message = "Passwords do not match.";
+        } else {
+            $lockAcquired = false;
+            $adminAccountCreated = false;
+            try {
+                $lockAcquired = (int) $pdo->query(
+                    "SELECT GET_LOCK('hm_system_admin_registration', 10)"
+                )->fetchColumn() === 1;
+                if (!$lockAcquired) {
+                    $message = "Administrator registration is busy. Please try again.";
+                } elseif (!$isSuperAdmin && (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role IN ('admin', 'superadmin')")->fetchColumn() >= 2) {
+                    $message = "The first two administrator accounts have already been created. Only the SuperAdmin can create another administrator.";
+                } else {
+                    $adminCount = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role IN ('admin', 'superadmin')")->fetchColumn();
+                    $newAdminRole = $adminCount === 0 ? "superadmin" : "admin";
+                    $stmt = $pdo->prepare(
+                        "INSERT INTO users (name, email, password, role, phone_number)
+                         VALUES (?, ?, ?, ?, ?)"
+                    );
+                    $stmt->execute([
+                        $adminName,
+                        $adminEmail,
+                        password_hash($adminPassword, PASSWORD_DEFAULT),
+                        $newAdminRole,
+                        $adminPhone !== "" ? $adminPhone : null,
+                    ]);
+
+                    $createdAdminId = (int) $pdo->lastInsertId();
+                    log_activity(
+                        $pdo,
+                        $isAdmin ? (int) $_SESSION["user_id"] : $createdAdminId,
+                        "Administrator created",
+                        $adminName . " created " . $newAdminRole . " account #" . $createdAdminId . "."
+                    );
+                    $adminAccountCreated = true;
+                }
+            } catch (PDOException $e) {
+                error_log("Administrator registration failed: " . $e->getMessage());
+                $message = "Could not create the administrator account. The email may already be registered.";
+            } finally {
+                if ($lockAcquired) {
+                    $pdo->query("SELECT RELEASE_LOCK('hm_system_admin_registration')");
+                }
+            }
+
+            if ($adminAccountCreated) {
+                header("Location: register.php?type=admin&created=1");
+                exit;
+            }
+
+            $adminCount = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role IN ('admin', 'superadmin')")->fetchColumn();
+            $canCreateAdmin = $isSuperAdmin || $adminCount < 2;
+        }
+    }
+} elseif ($_SERVER["REQUEST_METHOD"] === "POST" && $accountType === "student") {
     $name = trim($_POST["name"] ?? "");
     $studentNumberInput = trim($_POST["student_number"] ?? "");
     $studentNumberDigits = preg_replace('/[\s-]/', '', $studentNumberInput);
@@ -199,6 +312,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             font-weight: 500;
         }
 
+        .account-type-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 5px; margin: 0 0 20px; border: 1px solid rgba(203, 213, 225, .8); border-radius: 11px; background: rgba(241, 245, 249, .85); }
+        .account-type-switch a { padding: 10px 8px; border-radius: 8px; color: #475569; font-size: 13px; font-weight: 700; text-align: center; text-decoration: none; }
+        .account-type-switch a.active { background: #fff; color: var(--primary-green); box-shadow: 0 2px 8px rgba(15, 23, 42, .1); }
+        .access-notice { margin-bottom: 16px; padding: 12px 14px; border: 1px solid #f1d7a8; border-radius: 9px; background: #fff8e9; color: #76520d; font-size: 13px; line-height: 1.55; }
+        .access-notice a { color: var(--primary-green); font-weight: 700; }
+
         .student-info { border: 1px solid #d6dfed; border-radius: 14px; padding: 14px 16px 2px; margin: 4px 0 16px; }
         .student-info legend { color: #18315f; font-size: 14px; font-weight: 700; padding: 0 6px; }
         .student-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
@@ -291,6 +410,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             color: #475569;
             font-size: 11px;
             line-height: 1.5;
+        }
+
+        .optional-label {
+            display: inline;
+            margin-left: 4px;
+            color: #475569;
+            font-size: 12px;
+            font-weight: 400;
+            white-space: nowrap;
         }
 
         .login-btn {
@@ -394,8 +522,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             <div class="heading">
                 <h1>Create Account</h1>
-                <p>Register as a student</p>
+                <p><?= $accountType === "admin" ? "Register as an Administration" : "Register as a student" ?></p>
             </div>
+
+            <nav class="account-type-switch" aria-label="Account registration type">
+                <a href="register.php?type=student" class="<?= $accountType === "student" ? "active" : "" ?>" <?= $accountType === "student" ? 'aria-current="page"' : "" ?>>Student</a>
+                <a href="register.php?type=admin" class="<?= $accountType === "admin" ? "active" : "" ?>" <?= $accountType === "admin" ? 'aria-current="page"' : "" ?>>Administration</a>
+            </nav>
+
+            <?php if ($accountType === "admin" && $adminCreated): ?>
+                <div class="message" role="status" style="color:#1c633c;background:#edf8ef;border-color:#c9e8d0">
+                    Administrator account created successfully.
+                </div>
+            <?php elseif ($accountType === "admin" && !$canCreateAdmin): ?>
+                <div class="access-notice" role="status">
+                    The first two administrator accounts can register here. After that, only the signed-in SuperAdmin can create accounts.
+                    <a href="index.php">Sign in as the SuperAdmin</a>, then return here and choose Administration.
+                </div>
+            <?php endif; ?>
 
             <?php if ($message !== ""): ?>
                 <div class="message">
@@ -403,7 +547,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 </div>
             <?php endif; ?>
 
+            <?php if ($accountType === "student"): ?>
             <form method="POST">
+                <input type="hidden" name="account_type" value="student">
                 <fieldset class="student-info">
                     <legend>Student information</legend>
                     <div class="student-grid">
@@ -448,6 +594,46 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                 <button type="submit" class="login-btn">Create Account</button>
             </form>
+            <?php elseif ($canCreateAdmin): ?>
+            <form method="POST">
+                <input type="hidden" name="account_type" value="admin">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION["csrf_token"], ENT_QUOTES, "UTF-8") ?>">
+                <div class="account-grid">
+                    <div class="form-group">
+                        <label for="admin_name">Full Name</label>
+                        <input type="text" id="admin_name" name="name" placeholder="Full name" maxlength="100" required value="<?= htmlspecialchars($adminName, ENT_QUOTES, "UTF-8") ?>">
+                    </div>
+                    <div class="form-group">
+                        <label for="admin_email">Email Address</label>
+                        <input type="email" id="admin_email" name="email" placeholder="Email address" maxlength="150" required value="<?= htmlspecialchars($adminEmail, ENT_QUOTES, "UTF-8") ?>">
+                    </div>
+                    <div class="form-group">
+                        <label for="admin_phone_number">Phone number <span class="optional-label">(optional)</span></label>
+                        <input type="tel" id="admin_phone_number" name="phone_number" placeholder="09123456789 or +639123456789" maxlength="13" pattern="(?:09[0-9]{9}|\+639[0-9]{9})" inputmode="text" value="<?= htmlspecialchars($adminPhone, ENT_QUOTES, "UTF-8") ?>">
+                    </div>
+                    <div class="form-group">
+                        <label for="admin_password">Password</label>
+                        <div class="password-field">
+                            <input type="password" id="admin_password" name="password" placeholder="Create a password" minlength="8" pattern="(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}" title="Use at least 8 characters with uppercase and lowercase letters, a number, and a special character." aria-describedby="admin-password-hint" required>
+                            <button type="button" class="password-toggle" aria-label="Show password" aria-controls="admin_password" aria-pressed="false">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle><path data-eye-slash d="m3 3 18 18"></path></svg>
+                            </button>
+                        </div>
+                        <small class="password-hint" id="admin-password-hint">At least 8 characters, including uppercase and lowercase letters, a number, and a special character.</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="admin_confirm_password">Confirm Password</label>
+                        <div class="password-field">
+                            <input type="password" id="admin_confirm_password" name="confirm_password" placeholder="Confirm password" required>
+                            <button type="button" class="password-toggle" aria-label="Show password" aria-controls="admin_confirm_password" aria-pressed="false">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle><path data-eye-slash d="m3 3 18 18"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="login-btn">Create Administration Account</button>
+            </form>
+            <?php endif; ?>
 
             <div class="extra-links">
                 Already registered? <a href="index.php">Sign in</a>
@@ -463,26 +649,40 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 <script>
     const studentNumberInput = document.getElementById("student_number");
-    const formatStudentNumber = () => {
-        const digits = studentNumberInput.value.replace(/\D/g, "").slice(0, 7);
-        studentNumberInput.value = digits.length > 2
-            ? `${digits.slice(0, 2)}-${digits.slice(2)}`
-            : digits;
-    };
+    if (studentNumberInput) {
+        const formatStudentNumber = () => {
+            const digits = studentNumberInput.value.replace(/\D/g, "").slice(0, 7);
+            studentNumberInput.value = digits.length > 2
+                ? `${digits.slice(0, 2)}-${digits.slice(2)}`
+                : digits;
+        };
 
-    studentNumberInput.addEventListener("input", formatStudentNumber);
-    formatStudentNumber();
+        studentNumberInput.addEventListener("input", formatStudentNumber);
+        formatStudentNumber();
+    }
 
     const phoneNumberInput = document.getElementById("phone_number");
-    phoneNumberInput.addEventListener("input", () => {
-        const cleaned = phoneNumberInput.value
-            .replace(/[^\d+]/g, "")
-            .replace(/(?!^)\+/g, "")
-            .slice(0, 13);
-        if (phoneNumberInput.value !== cleaned) {
-            phoneNumberInput.value = cleaned;
-        }
-    });
+    if (phoneNumberInput) {
+        phoneNumberInput.addEventListener("input", () => {
+            const cleaned = phoneNumberInput.value
+                .replace(/[^\d+]/g, "")
+                .replace(/(?!^)\+/g, "")
+                .slice(0, 13);
+            if (phoneNumberInput.value !== cleaned) {
+                phoneNumberInput.value = cleaned;
+            }
+        });
+    }
+
+    const adminPhoneNumberInput = document.getElementById("admin_phone_number");
+    if (adminPhoneNumberInput) {
+        adminPhoneNumberInput.addEventListener("input", () => {
+            adminPhoneNumberInput.value = adminPhoneNumberInput.value
+                .replace(/[^\d+]/g, "")
+                .replace(/(?!^)\+/g, "")
+                .slice(0, 13);
+        });
+    }
 
     document.querySelectorAll(".password-toggle").forEach((toggle) => {
         const password = document.getElementById(toggle.getAttribute("aria-controls"));

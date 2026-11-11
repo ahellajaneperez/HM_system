@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
 
 if (
     !isset($_SESSION["user_id"]) ||
@@ -25,19 +27,89 @@ $cartCount = count($_SESSION['borrow_cart']);
 
 $submitted = isset($_GET['submitted']);
 $borrowRequests = [];
+$historySearch = trim((string) ($_GET["q"] ?? ""));
+$statusFilter = (string) ($_GET["status"] ?? "all");
+if (!in_array($statusFilter, ["all", "pending", "approved", "rejected", "returned"], true)) {
+    $statusFilter = "all";
+}
+$historyFrom = trim((string) ($_GET["from"] ?? ""));
+$historyTo = trim((string) ($_GET["to"] ?? ""));
+$validHistoryDate = static function (string $date): bool {
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        return false;
+    }
+    $parsed = DateTime::createFromFormat("!Y-m-d", $date);
+    return $parsed !== false && $parsed->format("Y-m-d") === $date;
+};
+if ($historyFrom !== "" && !$validHistoryDate($historyFrom)) {
+    $historyFrom = "";
+}
+if ($historyTo !== "" && !$validHistoryDate($historyTo)) {
+    $historyTo = "";
+}
+$historyPage = max(1, (int) ($_GET["page"] ?? 1));
+$historyPerPage = 10;
+$historyTotal = 0;
+$historyTotalPages = 1;
+$historyFirst = 0;
+$historyLast = 0;
+$historyError = "";
+$historyWhere = ["br.user_id = ?"];
+$historyParams = [$userId];
+if ($historySearch !== "") {
+    $historyWhere[] = "(e.name LIKE ? OR br.purpose LIKE ?)";
+    $searchTerm = "%" . $historySearch . "%";
+    array_push($historyParams, $searchTerm, $searchTerm);
+}
+if ($statusFilter !== "all") {
+    $historyWhere[] = "br.status = ?";
+    $historyParams[] = $statusFilter;
+}
+if ($historyFrom !== "") {
+    $historyWhere[] = "br.created_at >= ?";
+    $historyParams[] = $historyFrom . " 00:00:00";
+}
+if ($historyTo !== "") {
+    $historyWhere[] = "br.created_at < DATE_ADD(?, INTERVAL 1 DAY)";
+    $historyParams[] = $historyTo;
+}
+$historyWhereSql = implode(" AND ", $historyWhere);
+
+function borrow_history_page_url(int $targetPage): string {
+    $query = $_GET;
+    unset($query["page"], $query["submitted"]);
+    $query["page"] = $targetPage;
+    return "my_borrowings.php?" . http_build_query($query);
+}
 
 try {
+    $countStmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM borrowing_requests br
+        INNER JOIN equipment e ON e.id = br.equipment_id
+        WHERE {$historyWhereSql}
+    ");
+    $countStmt->execute($historyParams);
+    $historyTotal = (int) $countStmt->fetchColumn();
+    $historyTotalPages = max(1, (int) ceil($historyTotal / $historyPerPage));
+    $historyPage = min($historyPage, $historyTotalPages);
+    $historyOffset = ($historyPage - 1) * $historyPerPage;
+
     $stmt = $pdo->prepare("
         SELECT br.id, br.quantity, br.borrow_date, br.return_date, br.purpose, br.status, br.created_at, e.name AS equipment_name
         FROM borrowing_requests br
         INNER JOIN equipment e ON e.id = br.equipment_id
-        WHERE br.user_id = ?
+        WHERE {$historyWhereSql}
         ORDER BY br.id DESC
+        LIMIT {$historyPerPage} OFFSET {$historyOffset}
     ");
-    $stmt->execute([$userId]);
+    $stmt->execute($historyParams);
     $borrowRequests = $stmt->fetchAll();
+    $historyFirst = $historyTotal === 0 ? 0 : $historyOffset + 1;
+    $historyLast = min($historyOffset + $historyPerPage, $historyTotal);
 } catch (PDOException $ex) {
-    // Handle error
+    error_log("My borrowing requests query error: " . $ex->getMessage());
+    $historyError = "Your borrowing requests could not be loaded. Please refresh the page and try again.";
 }
 ?>
 <!DOCTYPE html>
@@ -121,6 +193,24 @@ td { padding: 18px 25px; border-top: 1px solid var(--border-color); font-size: 1
 .pill.rejected { background: #fde8e7; color: #a22c2c; }
 .btn-print { background: var(--accent-light); color: var(--primary); display: inline-block; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 700; text-decoration: none; }
 .btn-print:hover { background: var(--primary); color: #fff; }
+.history-filters { display:grid; grid-template-columns:minmax(220px,1.6fr) minmax(145px,.9fr) repeat(2,minmax(150px,.9fr)) auto auto; align-items:end; gap:10px; padding:18px 24px; border-bottom:1px solid var(--border-color); }
+.history-filter { display:flex; min-width:0; flex-direction:column; gap:6px; }
+.history-filter label { color:#43574a; font-size:11px; font-weight:700; }
+.history-filter input,.history-filter select { width:100%; height:42px; padding:0 12px; border:1px solid var(--border-color); border-radius:8px; background:#fff; color:var(--text-main); font:inherit; font-size:12px; }
+.history-filter input:focus,.history-filter select:focus { outline:2px solid rgba(30,70,32,.16); border-color:var(--primary); }
+.history-filters button,.history-filter-clear { display:inline-flex; height:42px; align-items:center; justify-content:center; padding:0 16px; border:1px solid var(--primary); border-radius:8px; background:var(--primary); color:#fff; font:inherit; font-size:12px; font-weight:700; white-space:nowrap; cursor:pointer; }
+.history-filters button:hover { background:var(--primary-dark); }
+.history-filter-clear { border-color:var(--border-color); background:#fff; color:var(--primary); text-decoration:none; }
+.history-filter-clear:hover { background:var(--accent-light); }
+.history-summary { padding:12px 24px 0; color:var(--text-muted); font-size:12px; font-weight:600; }
+.history-pagination { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:16px 24px; border-top:1px solid var(--border-color); color:var(--text-muted); font-size:12px; }
+.history-pages { display:flex; gap:5px; align-items:center; }
+.history-pages a { border:1px solid var(--border-color); border-radius:6px; padding:7px 9px; color:var(--primary); font-weight:600; }
+.history-pages a.current { background:var(--primary); color:#fff; }
+.history-pages a.disabled { color:#aab5ab; pointer-events:none; }
+@media(max-width:1100px) { .history-filters { grid-template-columns:repeat(4,minmax(0,1fr)); } .history-filter.search { grid-column:span 2; } }
+@media(max-width:700px) { .history-filters { grid-template-columns:repeat(2,minmax(0,1fr)); padding:15px; } .history-filter.search { grid-column:1/-1; } .history-filters button,.history-filter-clear { width:100%; } .history-pagination { padding:14px 15px; flex-direction:column; align-items:flex-start; } }
+@media(max-width:420px) { .history-filters { grid-template-columns:minmax(0,1fr); } .history-filter.search { grid-column:auto; } }
 
 .footer { padding: 30px; text-align: center; background: var(--white); border-top: 1px solid var(--border-color); margin-top: 50px; display: flex; flex-direction: column; align-items: center; gap: 15px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02); }
 .footer-logos { display: flex; align-items: center; justify-content: center; gap: 20px; }
@@ -180,10 +270,19 @@ td { padding: 18px 25px; border-top: 1px solid var(--border-color); font-size: 1
 
             <section class="panel">
                 <div class="panel-header">
-                    <h3>All Your Requests</h3>
+                    <div><h3>All Your Requests</h3><p style="margin-top:5px;color:var(--text-muted);font-size:12px;">Search and filter your borrowing history</p></div>
                 </div>
+                <form class="history-filters" method="GET" action="my_borrowings.php">
+                    <div class="history-filter search"><label for="history-search">Search equipment or purpose</label><input id="history-search" type="search" name="q" value="<?= e($historySearch) ?>" placeholder="Enter a keyword"></div>
+                    <div class="history-filter"><label for="history-status">Status</label><select id="history-status" name="status"><option value="all" <?= $statusFilter === "all" ? "selected" : "" ?>>All statuses</option><option value="pending" <?= $statusFilter === "pending" ? "selected" : "" ?>>Pending</option><option value="approved" <?= $statusFilter === "approved" ? "selected" : "" ?>>Approved</option><option value="rejected" <?= $statusFilter === "rejected" ? "selected" : "" ?>>Rejected</option><option value="returned" <?= $statusFilter === "returned" ? "selected" : "" ?>>Returned</option></select></div>
+                    <div class="history-filter"><label for="history-from">Submitted from</label><input id="history-from" type="date" name="from" value="<?= e($historyFrom) ?>"></div>
+                    <div class="history-filter"><label for="history-to">Submitted to</label><input id="history-to" type="date" name="to" value="<?= e($historyTo) ?>"></div>
+                    <button type="submit">Apply filters</button><a class="history-filter-clear" href="my_borrowings.php">Clear</a>
+                </form>
+                <?php if ($historyError !== ""): ?><div style="padding:14px 24px;color:#a22c2c;font-size:12px;font-weight:600;" role="alert"><?= e($historyError) ?></div><?php endif; ?>
+                <div class="history-summary">Showing <?= number_format($historyFirst) ?>–<?= number_format($historyLast) ?> of <?= number_format($historyTotal) ?> requests</div>
                 <div class="table-wrap">
-                    <table>
+                    <table data-pagination="false">
                         <thead>
                             <tr>
                                 <th>Equipment</th>
@@ -196,7 +295,7 @@ td { padding: 18px 25px; border-top: 1px solid var(--border-color); font-size: 1
                         </thead>
                         <tbody>
                         <?php if (empty($borrowRequests)): ?>
-                            <tr><td colspan="6" style="padding:45px; text-align:center; color:var(--text-muted);">No borrowing requests found.</td></tr>
+                            <tr><td colspan="6" style="padding:45px; text-align:center; color:var(--text-muted);">No borrowing requests match these filters.</td></tr>
                         <?php else: ?>
                             <?php foreach ($borrowRequests as $req): ?>
                                 <tr>
@@ -218,6 +317,11 @@ td { padding: 18px 25px; border-top: 1px solid var(--border-color); font-size: 1
                         </tbody>
                     </table>
                 </div>
+                <div class="history-pagination"><span>Page <?= number_format($historyPage) ?> of <?= number_format($historyTotalPages) ?></span><nav class="history-pages" aria-label="Borrowing request pages">
+                    <a class="<?= $historyPage <= 1 ? "disabled" : "" ?>" href="<?= e(borrow_history_page_url(max(1, $historyPage - 1))) ?>" aria-label="Previous page">‹ Previous</a>
+                    <?php for ($pageNo = max(1, $historyPage - 2); $pageNo <= min($historyTotalPages, $historyPage + 2); $pageNo++): ?><a class="<?= $pageNo === $historyPage ? "current" : "" ?>" href="<?= e(borrow_history_page_url($pageNo)) ?>" <?= $pageNo === $historyPage ? 'aria-current="page"' : "" ?>><?= $pageNo ?></a><?php endfor; ?>
+                    <a class="<?= $historyPage >= $historyTotalPages ? "disabled" : "" ?>" href="<?= e(borrow_history_page_url(min($historyTotalPages, $historyPage + 1))) ?>" aria-label="Next page">Next ›</a>
+                </nav></div>
             </section>
 
             <div class="footer">

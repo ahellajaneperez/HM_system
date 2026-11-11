@@ -12,7 +12,7 @@ $email = trim($_POST["email"] ?? "");
 $password = $_POST["password"] ?? "";
 $role = $_POST["role"] ?? "";
 
-if (!in_array($role, ["admin", "student"], true)) {
+if (!in_array($role, ["superadmin", "admin", "student"], true)) {
     $_SESSION["login_error"] = "Please select a valid role.";
     header("Location: index.php");
     exit;
@@ -37,7 +37,9 @@ if (
     $_SESSION["user_role"] = $user["role"];
     log_activity($pdo, (int) $user["id"], "Signed in", ucfirst($user["role"]) . " account signed in.");
 
-    if ($user["role"] === "admin") {
+    if ($user["role"] === "superadmin") {
+        header("Location: superadmin/index.php");
+    } elseif ($user["role"] === "admin") {
         header("Location: admin_dashboard.php");
     } else {
         header("Location: student_dashboard.php");

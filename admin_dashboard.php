@@ -3,7 +3,7 @@ session_start();
 
 if (
     !isset($_SESSION["user_id"]) ||
-    ($_SESSION["user_role"] ?? "") !== "admin"
+    !in_array($_SESSION["user_role"] ?? "", ["admin", "superadmin"], true)
 ) {
     header("Location: index.php");
     exit;
@@ -74,7 +74,7 @@ $requestsByStudent = [];
 $dbError = false;
 $userSearch = trim((string) ($_GET["user_q"] ?? ""));
 $userRoleFilter = (string) ($_GET["user_role"] ?? "student");
-if (!in_array($userRoleFilter, ["", "student", "admin"], true)) { $userRoleFilter = ""; }
+if (!in_array($userRoleFilter, ["", "student", "admin", "superadmin"], true)) { $userRoleFilter = ""; }
 $userFrom = (string) ($_GET["user_from"] ?? "");
 $userTo = (string) ($_GET["user_to"] ?? "");
 $dateIsValid = static function (string $date): bool {
@@ -89,7 +89,8 @@ if (!isset($userSorts[$userSort])) { $userSort = "newest"; }
 $userFilters = [];
 $userParams = [];
 if ($userSearch !== "") { $userFilters[] = "(name LIKE ? OR email LIKE ? OR student_number LIKE ? OR course LIKE ? OR section LIKE ?)"; $userParams[] = "%" . $userSearch . "%"; $userParams[] = "%" . $userSearch . "%"; $userParams[] = "%" . $userSearch . "%"; $userParams[] = "%" . $userSearch . "%"; $userParams[] = "%" . $userSearch . "%"; }
-if ($userRoleFilter !== "") { $userFilters[] = "role = ?"; $userParams[] = $userRoleFilter; }
+if ($userRoleFilter === "admin") { $userFilters[] = "role IN ('admin', 'superadmin')"; }
+elseif ($userRoleFilter !== "") { $userFilters[] = "role = ?"; $userParams[] = $userRoleFilter; }
 if ($userFrom !== "") { $userFilters[] = "created_at >= ?"; $userParams[] = $userFrom . " 00:00:00"; }
 if ($userTo !== "") { $userFilters[] = "created_at < DATE_ADD(?, INTERVAL 1 DAY)"; $userParams[] = $userTo . " 00:00:00"; }
 $userWhereSql = $userFilters ? " WHERE " . implode(" AND ", $userFilters) : "";
@@ -103,7 +104,7 @@ $userLast = 0;
 try {
     $totalUsers = (int) $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
     $totalStudents = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'student'")->fetchColumn();
-    $totalAdmins = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'admin'")->fetchColumn();
+    $totalAdmins = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role IN ('admin', 'superadmin')")->fetchColumn();
 
     $userCountStmt = $pdo->prepare("SELECT COUNT(*) FROM users{$userWhereSql}");
     $userCountStmt->execute($userParams);
@@ -522,7 +523,7 @@ try {
                 <form class="user-filters" method="GET" action="admin_dashboard.php">
                     <input type="hidden" name="section" value="users">
                     <div class="user-filter search"><label for="user-q">Search student number, name, or email</label><input id="user-q" type="search" name="user_q" value="<?= e($userSearch) ?>" placeholder="Name, email, or student number"></div>
-                    <div class="user-filter"><label for="user-role">Account type</label><select id="user-role" name="user_role"><option value="">All accounts</option><option value="student" <?= $userRoleFilter === "student" ? "selected" : "" ?>>Students</option><option value="admin" <?= $userRoleFilter === "admin" ? "selected" : "" ?>>Administrators</option></select></div>
+                    <div class="user-filter"><label for="user-role">Account type</label><select id="user-role" name="user_role"><option value="">All accounts</option><option value="student" <?= $userRoleFilter === "student" ? "selected" : "" ?>>Students</option><option value="admin" <?= $userRoleFilter === "admin" ? "selected" : "" ?>>Administrators</option><option value="superadmin" <?= $userRoleFilter === "superadmin" ? "selected" : "" ?>>SuperAdmins</option></select></div>
                     <div class="user-filter"><label for="user-from">Registered from</label><input id="user-from" type="date" name="user_from" value="<?= e($userFrom) ?>"></div>
                     <div class="user-filter"><label for="user-to">Registered to</label><input id="user-to" type="date" name="user_to" value="<?= e($userTo) ?>"></div>
                     <div class="user-filter"><label for="user-sort">Sort by</label><select id="user-sort" name="user_sort"><option value="newest" <?= $userSort === "newest" ? "selected" : "" ?>>Newest</option><option value="oldest" <?= $userSort === "oldest" ? "selected" : "" ?>>Oldest</option><option value="name" <?= $userSort === "name" ? "selected" : "" ?>>Name A–Z</option></select></div>

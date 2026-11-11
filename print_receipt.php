@@ -39,7 +39,7 @@ try {
         exit("Unauthorized access to this receipt.");
     }
 
-    if (!in_array($userRole, ['student', 'admin'], true)) {
+    if (!in_array($userRole, ['student', 'admin', 'superadmin'], true)) {
         http_response_code(403);
         exit("Unauthorized access.");
     }

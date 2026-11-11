@@ -1,5 +1,6 @@
 -- HM System database
--- Import this file using phpMyAdmin. Safe to import into a new database.
+-- Import this file using MySQL Workbench or phpMyAdmin.
+-- Re-running it preserves existing users and requests; existing equipment is not overwritten.
 CREATE DATABASE IF NOT EXISTS hm_system
   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE hm_system;
@@ -13,9 +14,28 @@ CREATE TABLE IF NOT EXISTS users (
     course VARCHAR(150) NULL,
     section VARCHAR(80) NULL,
     password VARCHAR(255) NOT NULL,
-    role ENUM('admin','student') NOT NULL DEFAULT 'student',
+    role ENUM('superadmin','admin','student') NOT NULL DEFAULT 'student',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
+
+-- Upgrade older installations that did not have the SuperAdmin role.
+SET @hm_role_needs_upgrade = (
+    SELECT COUNT(*)
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'users'
+      AND COLUMN_NAME = 'role'
+      AND COLUMN_TYPE NOT LIKE '%superadmin%'
+);
+ALTER TABLE users
+    MODIFY role ENUM('superadmin','admin','student') NOT NULL DEFAULT 'student';
+UPDATE users
+SET role = 'superadmin'
+WHERE @hm_role_needs_upgrade > 0
+  AND id = (
+      SELECT legacy_admin.id
+      FROM (SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1) AS legacy_admin
+  );
 
 CREATE TABLE IF NOT EXISTS equipment (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -62,7 +82,7 @@ CREATE TABLE IF NOT EXISTS activity_logs (
     CONSTRAINT fk_activity_user FOREIGN KEY (user_id) REFERENCES users(id)
         ON UPDATE CASCADE ON DELETE SET NULL
 ) ENGINE=InnoDB;
-INSERT INTO equipment (name, category, total_quantity) VALUES
+INSERT IGNORE INTO equipment (name, category, total_quantity) VALUES
 ('Wooden Spoon','Cooking Tools',10),
 ('Spatula','Cooking Tools',10),
 ('Ladle','Cooking Tools',10),
