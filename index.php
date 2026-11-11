@@ -36,9 +36,10 @@ $registered = isset($_GET['registered']);
         .hero-actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px}.button{padding:15px 20px;font-size:13px}.button-light{background:#fff;color:var(--forest)!important;box-shadow:none}.button-light:hover{background:#edf3e8;color:var(--forest)!important}.text-link{padding:12px 4px;text-decoration:none;font-size:13px;font-weight:700;color:#f4f7ee}.text-link span{margin-left:5px;color:var(--leaf)}
         .trust-line{display:flex;align-items:center;gap:12px;margin-top:38px;color:rgba(255,255,255,.72);font-size:12px}.trust-logos{display:flex;align-items:center}.trust-logos img{width:30px;height:30px;border-radius:50%;object-fit:cover;background:#fff;border:2px solid #244936;margin-right:-7px}.trust-line strong{color:#fff;font-weight:700}
         .login-card{width:100%;max-width:420px;justify-self:end;padding:30px;background:rgba(255,255,255,.97);color:var(--ink);border:1px solid rgba(255,255,255,.8);border-radius:15px;box-shadow:0 24px 70px rgba(3,21,12,.3)}
-        .card-heading{display:flex;align-items:center;gap:14px;margin-bottom:22px}.card-mark{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;background:#edf4e7;color:var(--forest);font-size:21px}.card-heading h2{font:800 18px 'Manrope',sans-serif;margin:0 0 3px;letter-spacing:-.02em}.card-heading p{font-size:12px;color:var(--muted);margin:0}
+        .card-heading{display:flex;align-items:center;margin-bottom:22px}.card-heading h2{font:800 18px 'Manrope',sans-serif;margin:0 0 3px;letter-spacing:-.02em}.card-heading p{font-size:12px;color:var(--muted);margin:0}
         .notice{padding:11px 13px;margin:0 0 16px;border-radius:8px;font-size:12px;line-height:1.5}.notice.error{color:#9d2727;background:#fff0ef;border:1px solid #ffd3cf}.notice.success{color:#1c633c;background:#edf8ef;border:1px solid #c9e8d0}
         .form-group{margin-bottom:14px}.form-group label{display:block;font-size:12px;font-weight:700;margin-bottom:7px;color:#34453a}.form-group input,.form-group select{width:100%;height:46px;padding:0 13px;border:1px solid #d7dfd5;border-radius:7px;background:#fff;color:var(--ink);font:500 13px 'DM Sans',sans-serif;outline:none;transition:border .2s,box-shadow .2s}.form-group input:focus,.form-group select:focus{border-color:#518064;box-shadow:0 0 0 3px rgba(61,119,82,.12)}
+        .password-field{position:relative}.password-field input{padding-right:46px!important}.password-toggle{position:absolute;top:50%;right:10px;display:grid;place-items:center;width:30px;height:30px;padding:0;transform:translateY(-50%);border:0;border-radius:6px;background:transparent;color:#65736a;cursor:pointer}.password-toggle:hover{background:#edf3e8;color:var(--forest)}.password-toggle:focus-visible{outline:2px solid #518064;outline-offset:2px}.password-toggle svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.password-toggle [hidden]{display:none}
         .submit{width:100%;height:47px;margin-top:5px;cursor:pointer}.form-links{display:flex;justify-content:space-between;gap:10px;margin-top:15px;font-size:11px}.form-links a{color:var(--forest);font-weight:700;text-decoration:none}.form-links a:hover{text-decoration:underline}.card-foot{border-top:1px solid var(--line);margin-top:21px;padding-top:15px;color:#768178;font-size:10px;line-height:1.6}
         .section{padding:76px clamp(22px,8vw,128px)}.section-head{max-width:640px;margin:0 auto 34px;text-align:center}.section-kicker{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:#557751}.section-head h2{margin:11px 0 10px;font:800 clamp(26px,3vw,38px)/1.2 'Manrope',sans-serif;letter-spacing:-.04em;color:var(--forest)}.section-head p{margin:0;color:var(--muted);font-size:14px;line-height:1.75}
         .feature-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;max-width:1120px;margin:0 auto}.feature{padding:25px 24px 27px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 22px rgba(25,50,31,.035)}.feature-icon{width:44px;height:44px;display:grid;place-items:center;background:#eff5e9;border-radius:10px;color:var(--forest);font-size:20px;margin-bottom:20px}.feature h3{font:800 16px 'Manrope',sans-serif;margin:0 0 8px;color:#233a2b}.feature p{font-size:12px;line-height:1.8;color:var(--muted);margin:0}
@@ -58,7 +59,7 @@ $registered = isset($_GET['registered']);
     <nav class="nav-links" aria-label="Main navigation">
         <a href="#features">What you can do</a>
         <a href="#how-it-works">How it works</a>
-        <a class="nav-cta" href="#sign-in">Open the portal <span aria-hidden="true">↗</span></a>
+        <a class="nav-cta" href="#sign-in">Open the portal <span aria-hidden="true"></span></a>
     </nav>
 </header>
 <main id="top">
@@ -68,20 +69,20 @@ $registered = isset($_GET['registered']);
             <h1 id="hero-title">The right tools for <span>every practical.</span></h1>
             <p>A simple place for Hospitality Management students and administrators to find equipment, request what they need, and keep every return on record.</p>
             <div class="hero-actions">
-                <a class="button button-light" href="#sign-in">Sign in to get started <span aria-hidden="true">→</span></a>
-                <a class="text-link" href="register.php">New student? Create an account <span aria-hidden="true">↗</span></a>
+                <a class="button button-light" href="#sign-in">Sign in to get started <span aria-hidden="true"></span></a>
+                <a class="text-link" href="register.php">New student? Create an account <span aria-hidden="true"></span></a>
             </div>
             <div class="trust-line"><span class="trust-logos"><img src="images/ISU.png" alt=""><img src="images/ccsict.jpg" alt=""><img src="images/Hm.jpg" alt=""></span><span>Built for <strong>students and administrators</strong></span></div>
         </div>
         <aside class="login-card" id="sign-in" aria-labelledby="signin-title">
-            <div class="card-heading"><div class="card-mark" aria-hidden="true">⌂</div><div><h2 id="signin-title">Welcome back</h2><p>Sign in to your authorized account</p></div></div>
+            <div class="card-heading"><div><h2 id="signin-title">Welcome back</h2><p>Sign in to your authorized account</p></div></div>
             <?php if ($registered): ?><div class="notice success" role="status">Your student account is ready. Sign in to continue.</div><?php endif; ?>
             <?php if ($error !== ''): ?><div class="notice error" role="alert"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></div><?php endif; ?>
             <form action="login.php" method="POST">
                 <div class="form-group"><label for="role">Account type</label><select name="role" id="role" required><option value="">Choose account type</option><option value="admin">Administrator</option><option value="student">Student</option></select></div>
-                <div class="form-group"><label for="email">Email address</label><input type="email" id="email" name="email" placeholder="you@example.com" autocomplete="username" required></div>
-                <div class="form-group"><label for="password">Password</label><input type="password" id="password" name="password" placeholder="Enter your password" autocomplete="current-password" required></div>
-                <button type="submit" class="button submit">Sign in <span aria-hidden="true">→</span></button>
+                <div class="form-group"><label for="email">Email address</label><input type="email" id="email" name="email" placeholder="you@gmail.com" autocomplete="username" required></div>
+                <div class="form-group"><label for="password">Password</label><div class="password-field"><input type="password" id="password" name="password" placeholder="Enter your password" autocomplete="current-password" required><button type="button" class="password-toggle" aria-label="Show password" aria-controls="password" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle><path data-eye-slash d="m3 3 18 18"></path></svg></button></div></div>
+                <button type="submit" class="button submit">Sign in <span aria-hidden="true"></span></button>
             </form>
             <div class="form-links"><a href="forgot_password.php">Forgot password?</a><a href="register.php">Create student account</a></div>
             <div class="card-foot">Use the account type assigned to your account. Students can create an account before signing in.</div>
@@ -104,6 +105,24 @@ $registered = isset($_GET['registered']);
         </div>
     </section>
 </main>
-<footer class="footer"><div class="footer-brand"><img src="images/Hm.jpg" alt="">Hospitality Management Borrowing System</div><div>© <?= date('Y') ?> · <a href="#top">Back to top ↑</a></div></footer>
+<footer class="footer"><div class="footer-brand"><img src="images/Hm.jpg" alt="">Hospitality Management Borrowing System</div><div>© <?= date('Y') ?> · <a href="#top">Back to top </a></div></footer>
+<script>
+    document.querySelectorAll(".password-toggle").forEach((toggle) => {
+        const password = document.getElementById(toggle.getAttribute("aria-controls"));
+        const eyeSlash = toggle.querySelector("[data-eye-slash]");
+        const syncPasswordToggle = () => {
+            const isVisible = password.type === "text";
+            eyeSlash.setAttribute("visibility", isVisible ? "hidden" : "visible");
+            toggle.setAttribute("aria-pressed", String(isVisible));
+            toggle.setAttribute("aria-label", isVisible ? "Hide password" : "Show password");
+        };
+
+        syncPasswordToggle();
+        toggle.addEventListener("click", () => {
+            password.type = password.type === "text" ? "password" : "text";
+            syncPasswordToggle();
+        });
+    });
+</script>
 </body>
 </html>

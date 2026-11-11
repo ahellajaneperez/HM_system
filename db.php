@@ -1,12 +1,12 @@
 <?php
 declare(strict_types=1);
 
-// XAMPP default settings. Change these values if your MySQL credentials differ.
-$host = '127.0.0.1';
-$port = 3306;
-$dbname = 'hm_system';
-$username = 'root';
-$password = '';
+$databaseConfig = require __DIR__ . '/config/database.php';
+$host = $databaseConfig['host'];
+$port = $databaseConfig['port'];
+$dbname = $databaseConfig['database'];
+$username = $databaseConfig['username'];
+$password = $databaseConfig['password'];
 
 try {
     $pdo = new PDO(
@@ -22,12 +22,13 @@ try {
 } catch (PDOException $e) {
     error_log('HM System database connection error: ' . $e->getMessage());
     http_response_code(500);
-    exit('Database connection failed. Import database/hm_system.sql in phpMyAdmin and check db.php settings.');
+    exit('Database connection failed. Start XAMPP MySQL, run database/hm_system.sql in MySQL Workbench, and verify the host, port, and credentials in config/database.php.');
 }
 
 $profileColumnCheck = $pdo->prepare("SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = ?");
 $profileColumns = [
     "student_number" => "VARCHAR(50) NULL UNIQUE",
+    "phone_number" => "VARCHAR(20) NULL",
     "course" => "VARCHAR(150) NULL",
     "section" => "VARCHAR(80) NULL",
 ];

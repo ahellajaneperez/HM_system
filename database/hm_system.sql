@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
     name VARCHAR(100) NOT NULL,
     email VARCHAR(150) NOT NULL UNIQUE,
     student_number VARCHAR(50) NULL UNIQUE,
+    phone_number VARCHAR(20) NULL,
     course VARCHAR(150) NULL,
     section VARCHAR(80) NULL,
     password VARCHAR(255) NOT NULL,

@@ -8,21 +8,48 @@ foreach (range(1, 4) as $year) { foreach (["A", "B", "C"] as $letter) { $section
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $name = trim($_POST["name"] ?? "");
-    $studentNumber = trim($_POST["student_number"] ?? "");
+    $studentNumberInput = trim($_POST["student_number"] ?? "");
+    $studentNumberDigits = preg_replace('/[\s-]/', '', $studentNumberInput);
+    $studentNumber = preg_match('/^[0-9]{7}$/', $studentNumberDigits)
+        ? substr($studentNumberDigits, 0, 2) . '-' . substr($studentNumberDigits, 2)
+        : $studentNumberInput;
+    $phoneInput = trim($_POST["phone_number"] ?? "");
+    $phoneNumber = preg_replace('/[\s()-]/', '', $phoneInput);
     $course = trim($_POST["course"] ?? "");
     $section = trim($_POST["section"] ?? "");
     $email = trim($_POST["email"] ?? "");
     $password = $_POST["password"] ?? "";
     $confirm = $_POST["confirm_password"] ?? "";
+    $emailDomain = strtolower(substr($email, (int) strrpos($email, "@") + 1));
+    $placeholderEmailDomains = ["example.com", "example.org", "example.net", "sample.com"];
+    $isPlaceholderEmail = preg_match('/\.(?:example|invalid|test|localhost)$/', $emailDomain) === 1;
+    foreach ($placeholderEmailDomains as $placeholderDomain) {
+        if ($emailDomain === $placeholderDomain || str_ends_with($emailDomain, "." . $placeholderDomain)) {
+            $isPlaceholderEmail = true;
+            break;
+        }
+    }
 
-    if ($name === "" || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $message = "Please enter a valid name and email.";
-    } elseif ($studentNumber === "" || strlen($studentNumber) > 50) {
-        $message = "Please enter a student number (up to 50 characters).";
+    if ($name === "") {
+        $message = "Please enter your name.";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $message = "Please enter a valid email address.";
+    } elseif ($isPlaceholderEmail) {
+        $message = "Please use a real email address. Example and sample email domains are not allowed.";
+    } elseif (!preg_match('/^[0-9]{2}-[0-9]{5}$/', $studentNumber)) {
+        $message = "Enter 7 digits for your student number. The hyphen is added automatically (for example, 23-12345).";
+    } elseif (!preg_match('/^(?:09[0-9]{9}|\+639[0-9]{9})$/', $phoneNumber)) {
+        $message = "Enter an 11-digit number starting with 09 or a Philippine number in +639 format (for example, +639123456789).";
     } elseif ($course !== $courseName || !in_array($section, $sectionOptions, true)) {
         $message = "Select the Hospitality Management course and a valid section.";
-    } elseif (strlen($password) < 8) {
-        $message = "Password must be at least 8 characters.";
+    } elseif (
+        strlen($password) < 8
+        || !preg_match('/[A-Z]/', $password)
+        || !preg_match('/[a-z]/', $password)
+        || !preg_match('/[0-9]/', $password)
+        || !preg_match('/[^A-Za-z0-9]/', $password)
+    ) {
+        $message = "Password must be at least 8 characters and include an uppercase letter, a lowercase letter, a number, and a special character.";
     } elseif ($password !== $confirm) {
         $message = "Passwords do not match.";
     } else {
@@ -30,11 +57,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $hash = password_hash($password, PASSWORD_DEFAULT);
 
             $stmt = $pdo->prepare(
-                "INSERT INTO users (name, email, password, role, student_number, course, section)
-                 VALUES (?, ?, ?, 'student', ?, ?, ?)"
+                "INSERT INTO users (name, email, password, role, student_number, phone_number, course, section)
+                 VALUES (?, ?, ?, 'student', ?, ?, ?, ?)"
             );
 
-            $stmt->execute([$name, $email, $hash, $studentNumber, $course, $section]);
+            $stmt->execute([$name, $email, $hash, $studentNumber, $phoneNumber, $course, $section]);
             log_activity($pdo, (int) $pdo->lastInsertId(), "Account registered", $name . " created a student account.");
 
             header("Location: index.php?registered=1");
@@ -83,7 +110,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         .main-wrapper {
             display: flex;
             width: 100%;
-            max-width: 1050px;
+            max-width: 1120px;
             align-items: center;
             justify-content: space-between;
             gap: 50px;
@@ -129,7 +156,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         /* KANAN: REGISTER CARD CONTAINER (NAKA-BLUR OVERLAY) */
         .login-container {
             width: 100%;
-            max-width: 420px;
+            max-width: 560px;
             padding: 40px 35px;
             background: rgba(255, 255, 255, 0.55); 
             backdrop-filter: blur(14px); 
@@ -178,7 +205,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         .student-grid select { width: 100%; padding: 11px 14px; border: 1px solid rgba(203, 213, 225, .9); border-radius: 10px; background: rgba(255,255,255,.9); color: var(--text-dark); font-size: 14px; }
         .student-grid select:focus { outline: none; border-color: var(--primary-green); box-shadow: 0 0 0 3px rgba(30,70,32,.15); }
         .required-mark { color: #b42318; }
-        @media (max-width: 520px) { .student-grid { grid-template-columns: 1fr; } }        .form-group {
+        .account-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
+        .form-group {
             margin-bottom: 14px;
         }
 
@@ -206,6 +234,63 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             border-color: var(--primary-green);
             background: rgba(255, 255, 255, 0.95);
             box-shadow: 0 0 0 3px rgba(30, 70, 32, 0.15);
+        }
+
+        .password-field {
+            position: relative;
+        }
+
+        .password-field input {
+            padding-right: 46px;
+        }
+
+        .password-toggle {
+            position: absolute;
+            top: 50%;
+            right: 10px;
+            display: grid;
+            place-items: center;
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            transform: translateY(-50%);
+            border: 0;
+            border-radius: 6px;
+            background: transparent;
+            color: #475569;
+            cursor: pointer;
+        }
+
+        .password-toggle:hover {
+            background: rgba(30, 70, 32, 0.08);
+            color: var(--primary-green);
+        }
+
+        .password-toggle:focus-visible {
+            outline: 2px solid var(--primary-green);
+            outline-offset: 2px;
+        }
+
+        .password-toggle svg {
+            width: 18px;
+            height: 18px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 1.8;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .password-toggle [hidden] {
+            display: none;
+        }
+
+        .password-hint {
+            display: block;
+            margin-top: 6px;
+            color: #475569;
+            font-size: 11px;
+            line-height: 1.5;
         }
 
         .login-btn {
@@ -277,7 +362,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
 
             .login-container {
-                max-width: 100%;
+                max-width: 560px;
+            }
+        }
+
+        @media (max-width: 520px) {
+            .student-grid,
+            .account-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -315,29 +407,43 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 <fieldset class="student-info">
                     <legend>Student information</legend>
                     <div class="student-grid">
-                        <div class="form-group"><label for="student_number">Student number <span class="required-mark">*</span></label><input type="text" id="student_number" name="student_number" placeholder="Your student number" maxlength="50" required value="<?= htmlspecialchars($_POST["student_number"] ?? "", ENT_QUOTES, "UTF-8") ?>"></div>
+                        <div class="form-group"><label for="student_number">Student number <span class="required-mark">*</span></label><input type="text" id="student_number" name="student_number" placeholder="23-12345" maxlength="8" pattern="[0-9]{2}-[0-9]{5}" inputmode="numeric" title="Enter 7 digits; the hyphen is added automatically." required value="<?= htmlspecialchars($_POST["student_number"] ?? "", ENT_QUOTES, "UTF-8") ?>"></div>
                         <div class="form-group"><label for="course">Course <span class="required-mark">*</span></label><select id="course" name="course" required><option value="">Select course</option><option value="<?= htmlspecialchars($courseName, ENT_QUOTES, "UTF-8") ?>" <?= ($_POST["course"] ?? "") === $courseName ? "selected" : "" ?>>BSHM — Bachelor of Science in Hospitality Management</option></select></div>
                         <div class="form-group"><label for="section">Section <span class="required-mark">*</span></label><select id="section" name="section" required><option value="">Select year and section</option><?php foreach ($sectionOptions as $option): ?><option value="<?= htmlspecialchars($option, ENT_QUOTES, "UTF-8") ?>" <?= ($_POST["section"] ?? "") === $option ? "selected" : "" ?>>BSHM / <?= htmlspecialchars($option, ENT_QUOTES, "UTF-8") ?></option><?php endforeach; ?></select></div>
+                        <div class="form-group"><label for="phone_number">Phone number <span class="required-mark">*</span></label><input type="tel" id="phone_number" name="phone_number" placeholder="(09123456789 or +639123456789)" maxlength="13" pattern="(?:09[0-9]{9}|\+639[0-9]{9})" inputmode="text" title="Enter 11 digits starting with 09, or use +63 followed by 10 digits." aria-describedby="phone-hint" required value="<?= htmlspecialchars($_POST["phone_number"] ?? "", ENT_QUOTES, "UTF-8") ?>"><small class="password-hint" id="phone-hint">Use 11 digits starting with 09, or +63 followed by 10 digits.</small></div>
                     </div>
                 </fieldset>
-                <div class="form-group">
-                    <label for="name">Full Name</label>
-                    <input type="text" id="name" name="name" placeholder="Full name" maxlength="100" required value="<?= htmlspecialchars($_POST["name"] ?? "", ENT_QUOTES, "UTF-8") ?>">
-                </div>
+                <div class="account-grid">
+                    <div class="form-group">
+                        <label for="name">Full Name</label>
+                        <input type="text" id="name" name="name" placeholder="Full name" maxlength="100" required value="<?= htmlspecialchars($_POST["name"] ?? "", ENT_QUOTES, "UTF-8") ?>">
+                    </div>
 
-                <div class="form-group">
-                    <label for="email">Email Address</label>
-                    <input type="email" id="email" name="email" placeholder="Email address" maxlength="150" required value="<?= htmlspecialchars($_POST["email"] ?? "", ENT_QUOTES, "UTF-8") ?>">
-                </div>
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input type="email" id="email" name="email" placeholder="Email address" maxlength="150" required value="<?= htmlspecialchars($_POST["email"] ?? "", ENT_QUOTES, "UTF-8") ?>">
+                    </div>
 
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" placeholder="At least 8 characters" minlength="8" required>
-                </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <div class="password-field">
+                            <input type="password" id="password" name="password" placeholder="Create a password" minlength="8" pattern="(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}" title="Use at least 8 characters with uppercase and lowercase letters, a number, and a special character." aria-describedby="password-hint" required>
+                            <button type="button" class="password-toggle" aria-label="Show password" aria-controls="password" aria-pressed="false">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle><path data-eye-slash d="m3 3 18 18"></path></svg>
+                            </button>
+                        </div>
+                        <small class="password-hint" id="password-hint">At least 8 characters, with uppercase and lowercase letters, a number, and a special character.</small>
+                    </div>
 
-                <div class="form-group">
-                    <label for="confirm_password">Confirm Password</label>
-                    <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm password" required>
+                    <div class="form-group">
+                        <label for="confirm_password">Confirm Password</label>
+                        <div class="password-field">
+                            <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm password" required>
+                            <button type="button" class="password-toggle" aria-label="Show password" aria-controls="confirm_password" aria-pressed="false">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle><path data-eye-slash d="m3 3 18 18"></path></svg>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <button type="submit" class="login-btn">Create Account</button>
@@ -355,5 +461,45 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     </div>
 
+<script>
+    const studentNumberInput = document.getElementById("student_number");
+    const formatStudentNumber = () => {
+        const digits = studentNumberInput.value.replace(/\D/g, "").slice(0, 7);
+        studentNumberInput.value = digits.length > 2
+            ? `${digits.slice(0, 2)}-${digits.slice(2)}`
+            : digits;
+    };
+
+    studentNumberInput.addEventListener("input", formatStudentNumber);
+    formatStudentNumber();
+
+    const phoneNumberInput = document.getElementById("phone_number");
+    phoneNumberInput.addEventListener("input", () => {
+        const cleaned = phoneNumberInput.value
+            .replace(/[^\d+]/g, "")
+            .replace(/(?!^)\+/g, "")
+            .slice(0, 13);
+        if (phoneNumberInput.value !== cleaned) {
+            phoneNumberInput.value = cleaned;
+        }
+    });
+
+    document.querySelectorAll(".password-toggle").forEach((toggle) => {
+        const password = document.getElementById(toggle.getAttribute("aria-controls"));
+        const eyeSlash = toggle.querySelector("[data-eye-slash]");
+        const syncPasswordToggle = () => {
+            const isVisible = password.type === "text";
+            eyeSlash.setAttribute("visibility", isVisible ? "hidden" : "visible");
+            toggle.setAttribute("aria-pressed", String(isVisible));
+            toggle.setAttribute("aria-label", isVisible ? "Hide password" : "Show password");
+        };
+
+        syncPasswordToggle();
+        toggle.addEventListener("click", () => {
+            password.type = password.type === "text" ? "password" : "text";
+            syncPasswordToggle();
+        });
+    });
+</script>
 </body>
 </html>
